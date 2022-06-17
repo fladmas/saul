@@ -10,6 +10,11 @@ export {
   postSTAC,
   getSTAC,
   getDHM,
-  get
+  get,
+  post
 } from './modules/api.js'
- 
+
+export {
+  epsg25832proj,
+  createTranslator
+} from './modules/saul-projection.js'
