@@ -32,7 +32,6 @@ function image2world(image_data, col, row, Z = 0) {
   var c = ci*(-1)
   var dimX = dimXi*pix/2*(-1)
   var dimY = dimYi*pix/2*(-1)
-  row = dimYi - row
   
   // ... Do calculations ...
   var o = radians(Ome)
@@ -56,7 +55,6 @@ function image2world(image_data, col, row, Z = 0) {
 
   var X = (Z-Z0)*kx + X0
   var Y = (Z-Z0)*ky + Y0
-
 
   return[X,Y,Z]
 }
@@ -132,9 +130,16 @@ async function getZ(xcoor, ycoor, auth) {
 }
 
 /** Iterates guessing at a world coordinate using image coordinates and elevation info */
-function iterateRecursive(image_data, col, row, z, count, limit, auth) {
+function iterateRecursive(image_data, col, row, z, count, limit, auth, i) {
+
   // Get coordinates based on current z value
   const worldcoor = image2world(image_data,col,row,z)
+
+  i--
+  if (i <= 0) {
+    // max iterations reached
+    return [worldcoor, 0, count]
+  }
 
   // Get new z value from coordinates
   return getZ(worldcoor[0],worldcoor[1], auth).then((new_z) => {
@@ -145,7 +150,7 @@ function iterateRecursive(image_data, col, row, z, count, limit, auth) {
     if (delta >= limit) {
       // If the difference is too big, try building coordinates with the new z
       count = count + 1
-      return iterateRecursive(image_data, col, row, new_z, count, limit, auth)
+      return iterateRecursive(image_data, col, row, new_z, count, limit, auth, i)
     } else {
       // If the difference is small, return coordinates
       return [worldcoor, delta, count]
@@ -154,16 +159,17 @@ function iterateRecursive(image_data, col, row, z, count, limit, auth) {
 }
 
 /** 
- * Tries to guess world coordinate for a pixel position within an image using STAC API image data.
+ * Tries to guess world coordinate for a pixel position within an image using STAC API image data and requests to DHM elevation data.
  * @param {object} image_data - image item data from STAC API
  * @param {number} col - image x coordinate (from left to right)
  * @param {number} row - image y coordinate (from top to bottom)
  * @param {{API_DHM_BASEURL: string, API_DHM_USERNAME: string, API_DHM_PASSWORD: string}} auth - API autentication data. See ../config.js.example for reference.
- * @param {number} [limit] - result may be inaccurate within this limit. Default is 0.1.
+ * @param {number} [limit] - result may be inaccurate within this limit. Default is 1.
  * @returns {array} [world coordindates (array), elevation discrepancy, calculation iterations]
  */
-async function iterate(image_data, col, row, auth, limit = 0.1) {
-  return iterateRecursive(image_data, col, row, 0.5, 0, limit, auth)
+function iterate(image_data, col, row, auth, limit = 1) {
+  let i = 20 // Maximum number of iterations allowed
+  return iterateRecursive(image_data, col, row, 0.5, 0, limit, auth, i)
 }
 
 export { 
